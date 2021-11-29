@@ -27,14 +27,14 @@ docker run -p 3000:3000 -v /app/node_modules -v $(pwd):/app <imageid> #Dynamic c
 vi docker-compose.yml
 ---------------------------------------------------------------------------------------------------------
 version : "3"
-   services: 
-       web:
-        build:
-          context: .
-             dockerfile: dockerfile.dev
-        ports:
-         - "3000:3000"
-        volumes :
-         - /app/node_modules
-         - .:/app
+services: 
+   web:    # web = imagename
+     build:
+        context: .    # Location of dockerfile
+        dockerfile: dockerfile.dev  #Name of dockerfile
+     ports:
+        - "3000:3000"     # - :Indicates listing of attributes
+     volumes :
+        - /app/node_modules
+        - .:/app # mounting present working directory in the local machine to /app inside the container
 -------------------------------------------------------------------------------------
