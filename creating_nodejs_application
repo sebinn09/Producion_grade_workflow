@@ -22,3 +22,19 @@ CMD ["npm","run","start"]
 -------------------------------------------------------------------------------------------------------~                             
 docker build -f dockerfile.dev .
 docker run -it <imageid> -p 3000:3000
+docker run -p 3000:3000 -v /app/node_modules -v $(pwd):/app <imageid> #Dynamic changes to the local files of application will take immediate effect in the server
+
+vi docker-compose.yml
+---------------------------------------------------------------------------------------------------------
+version : "3"
+   services: 
+       web:
+        build:
+          context: .
+             dockerfile: dockerfile.dev
+        ports:
+         - "3000:3000"
+        volumes :
+         - /app/node_modules
+         - .:/app
+-------------------------------------------------------------------------------------
