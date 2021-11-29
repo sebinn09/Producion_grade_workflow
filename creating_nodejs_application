@@ -1,0 +1,5 @@
+apt-get install nodejs
+apt-get install npx
+npx create-react-app frontend
+cd /frontend
+npx start
