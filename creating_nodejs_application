@@ -1,5 +1,24 @@
 apt-get install nodejs
 apt-get install npx
 npx create-react-app frontend
-cd /frontend
-npx start
+
+cd /frontend ld
+npm run test
+npm run build
+npm run start #For development use only,starts development server
+
+vi dockerfile.dev
+---------------------------------------------------------------------------------------------------------
+FROM node:16-alpine
+
+WORKDIR '/app'
+
+COPY package.json .
+RUN npm install
+
+COPY . .
+
+CMD ["npm","run","start"]
+-------------------------------------------------------------------------------------------------------~                             
+docker build -f dockerfile.dev .
+docker run -it <imageid> -p 3000:3000
