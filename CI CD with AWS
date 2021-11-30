@@ -1,1 +1,48 @@
 
+developer-------->GitHub-------PULL-------->TravisCI(Testing)------------------>AWS(Deploy)
+
+Travis CI
+#In project root folder
+.travis.yml
+----------------------------------------------------------------------------------------------
+sudo: required
+services:
+  - docker
+before_install:
+  - docker build -t <username/repository> -f dockerfile.dev .
+script:
+  - docker run -e CI=true <username/repositoryname> npm run test # Test will run and exit by showing an output OR docker run USERNAME/docker-react npm run test -- --coverage
+deploy:
+  - provider: elasticbeanstalk
+  - region: "us-west-2" # region where bucket is created
+  - app: "docker" #name given for application in AWS Elasticbeanstalk
+  - env: "docker-env" #environment name
+  - bucketname: "<s3 bucket created for elasticbeanstalk>"
+  - bucketpath: "docker" #app name (above we gave "docker",same name here)
+on:
+  branch: master
+access_key_id: $AWS_ACCESS_KEY     #Create users in aws and give bucket policy as "AdministratorAccess-AWSElasticBeanstalk" and copy the aws access key and secret key to Travis CI
+secret_access_key:
+  secure: "AWS_SECRET_KEY"
+  
+vi dockerfile
+---------------------------------------------------------------------------------------------------
+FROM node:16-alpine as builder
+WORKDIR /app
+COPY package.json .
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx
+EXPOSE 80
+COPY --from=builder /app/build /usr/share/nginx/html 
+
+GIT
+----------------------------------------------
+#On local machine
+git checkout -b <branch name(feature)>
+git push origin <branch name(feature)>
+
+In github create a pull request from master to feature,If code is correct confirm the pull.
+Testing will be done by Travis CI and Travis CI will deploy the code to AWS elasticbeanstalk.
