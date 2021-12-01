@@ -49,15 +49,25 @@ services:
       - /app/node_modules
       - ./server:/app
  -------------------------------------------------------------------------
-      
- vi dockerfile.dev  #make thsi file in directories server,client,worker
+ 
+ vi dockerfile.dev  #make this file in directories server,worker
  -----------------------------------------------------------------
  FROM node:16-alpine
  WORKDIR '/app'
  COPY ./package.json ./
  RUN npm install
  COPY . .
- CMD ["npm","run","start"]
+ CMD ["npm","run","dev"]  # development environment
+ ------------------------------------------------------------------------
+ 
+ vi dockerfile.dev  #make this file in directory client
+ -----------------------------------------------------------------
+ FROM node:16-alpine
+ WORKDIR '/app'
+ COPY ./package.json ./
+ RUN npm install
+ COPY . .
+ CMD ["npm","run","start"]  #production environment
  ------------------------------------------------------------------------
  
  Create a directory nginx
