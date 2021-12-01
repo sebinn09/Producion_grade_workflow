@@ -1,0 +1,231 @@
+vi dockerrun.aws.json #Create this file in root prject directory, Container definition given to AWS Elasticbeanstalk(How to download and use images from docker hub)
+----------------------------------------------------------------------------------------------------------------------------
+{
+"AWSEBDockerrunVersion":2,
+"ContainerDefinitions":[
+  {
+    "name":"client",
+    "image":"<dockerid/imagename(multi-client)>",
+    "hostname":"client",
+    "essential":false,
+    "memory":128 # RAM allocated for each container,It is in MB
+  },
+  {
+    "name":"server",
+    "image":"<dockerid/imagename(multi-server)>",
+    "hostname":"api",
+    "essential":false,
+    "memory":128
+  },
+  {
+    "name":"worker",
+    "image":"<dockerid/imagename(multi-worker)",
+    "hostname":"worker",
+    "essential":false,
+    "memory":128
+  },
+  {
+    "name":"nginx",
+    "image":"<dockerid/imagename(multi-nginx)",
+    "hostname":"nginx",
+    "essential":true,
+    "portmappings": [
+    {
+      "hostport":80
+      "containerPort":80
+    }
+   ],
+   "links":["server","client"],
+   "memory":128
+  }
+ ]
+}   
+-----------------------------------------------------------------------------------------------------------------------------
+vi .travis.yml      # In root project directory
+-----------------------------------------------------------
+sudo: required
+services:
+  - docker
+before install:
+  - docker build -t <dockerid/imagenametobecreated> -f <filename(./client/dockerfile.dev)> ./client
+script : #If build is succesfull
+  - docker run -e CI=true <dockerid/imagenametobecreated> npm test
+after_success:
+  - docker build <dockerid/multi-client> ./client #image build will be build from default dockerfile
+  - docker build <dockerid/multi-server> ./server
+  - docker build <dockerid/multi-worker> ./worker
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin #Loging to docker hub account
+  - docker push <dockerid/multi-client>            #|
+  - docker push <dockerid/multi-server>            #|------>Pushing images to docker hub
+  - docker push <dockerid/multi-worker>            #|
+
+deploy:
+  provider: elasticbeanstalk
+  region: 'us-east-1' # region where elasticbeanstalk is created
+  app: 'multi-docker'
+  env: 'MultiDocker-env'
+  bucket_name: 'elasticbeanstalk-us-east-1-923445559289' #s3 bucketname
+  bucket_path: 'docker-multi'
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
+---------------------------------------------------------------
+vi docker-compose.yml   # In root directory
+-----------------------------------------------------------
+version: '3'
+services:
+  postgres:
+     image: 'postgres:latest'
+      environment:
+         POSTGRES_PASSWORD=postgres_password
+  redis:
+     image: 'redis:latest'
+  nginx:
+     depends_on:
+      - api
+      - client
+     restart: always
+     build:
+         dockerfile: dockerfile.dev
+         context: ./nginx
+     ports:
+        - '3050:80'
+  api: #server
+    build:
+      dockerfile: dockerfile.dev
+      context: ./server
+    volumes:
+      - /app/node_modules
+      - ./server:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS-PORT=6379
+      - PGUSER=postgres
+      - PGHOST=postgres
+      - PGDATABASE=postgres
+      - PGPASSWORD=postgres_password
+      - PGPORT=5432
+  client:
+    build:
+      dockerfile: dockerfile.dev
+      context: ./client
+    volumes:
+      - /app/node_modules
+      - ./server:/app  
+      
+  worker:
+    build:
+      dockerfile: dockerfile.dev
+      context: ./worker
+    volumes:
+      - /app/node_modules
+      - ./server:/app
+ -------------------------------------------------------------------------
+      
+ vi dockerfile.dev  #make this file in directories server,worker
+ -----------------------------------------------------------------
+ FROM node:16-alpine
+ WORKDIR '/app'
+ COPY ./package.json ./
+ RUN npm install
+ COPY . .
+ CMD ["npm","run","dev"] #dev indicates development server,It is done by nodemon daemon inside package.json file
+ ------------------------------------------------------------------------
+ vi dockerfile.dev  #make this file in client directory
+ -----------------------------------------------------------------
+ FROM node:16-alpine
+ WORKDIR '/app'
+ COPY ./package.json ./
+ RUN npm install
+ COPY . .
+ CMD ["npm","run","start"]  #'start' indicates production server
+ --------------------------------------------------------------------------------
+ vi dockerfile.dev  # In worker
+ -----------------------------------------------------------------
+ FROM node:16-alpine
+ WORKDIR '/app'
+ COPY ./package.json ./
+ RUN npm install
+ COPY . .
+ CMD ["npm","run","dev"]
+ ------------------------------------------------------------------------
+  
+ vi dockerfile #for Prod Environment   ,In directories: worker and server
+ ----------------------------------------------------------------------------------
+ FROM node:16-alpine  # if needed (node:14.4.0-alpine)
+ WORKDIR '/app'
+ COPY ./package.json ./
+ RUN npm install
+ COPY . .
+ CMD ["npm","run","start"]
+ ----------------------------------------------------------------------------------------
+Create a directory nginx
+Create a file default.conf
+ 
+vi default.conf
+------------------------------------------------------------------------------ 
+upstream client {
+   server client:3000;
+}
+upstream api {               #server
+   server api:5000;
+}
+server{
+  listen 80;
+  location / {
+    proxy_pass http://client;
+}
+location /sockjs-node {                              #|
+    proxy_pass http://client;                        #|
+    proxy_http_version 1.1;                          #|--------->NOT MANDATORY
+    proxy_set_header Upgrade $http_upgrade;          #|--------->NOT MANDATORY
+    proxy_set_header Connection "Upgrade";           #|
+  }                                                  #|
+  location /api {
+    rewrite /api/(.*) /$1 break;
+    proxy_pass http://api;
+  }
+}
+------------------------------------------------------------------------------------
+vi dockerfile.dev
+---------------------------- ----------------------------------------------------------
+FROM nginx
+COPY ./default.conf /etc/nginx/conf.d/default.conf # Will overrite default.conf
+-----------------------------------------------------------------------------------------
+vi dockerfile #for Prod Environment   ,In directory nginx
+----------------------------------------------------------------------------------
+FROM nginx
+COPY ./default.conf /etc/nginx/conf.d/default.conf # Will overrite default.conf
+--------------------------------------------------------------------------------------------
+
+Create a directory named nginx in client directory.
+In ./client/nginx/
+
+vi default.conf
+---------------------------------------------------------------------------------------------
+server {
+  listen 3000;
+  location / {
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+    try_files $uri $uri/ /index.html;
+  }
+}
+-------------------------------------------------------------------------------------------------
+
+vi dockerfile # In client directory , for production environment
+-------------------------------------------------------------------------------------------------
+
+FROM node:16-alpine as builder
+WORKDIR '/app'
+COPY ./package.json .
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx
+EXPOSE 3000
+COPY ./default.conf /etc/conf.d/default.conf
+COPY --from builder /app/build /usr/share/nginx/html
+--------------------------------------------------------------------------------------------------
