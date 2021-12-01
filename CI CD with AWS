@@ -14,7 +14,7 @@ script:
   - docker run -e CI=true <username/repositoryname> npm run test # Test will run and exit by showing an output OR docker run USERNAME/docker-react npm run test -- --coverage
 deploy:
   - provider: elasticbeanstalk
-  - region: "us-west-2" # region where bucket is created
+  - region: "us-west-2" # region where elasticbeanstalk is created
   - app: "docker" #name given for application in AWS Elasticbeanstalk
   - env: "docker-env" #environment name
   - bucketname: "<s3 bucket created for elasticbeanstalk>"
