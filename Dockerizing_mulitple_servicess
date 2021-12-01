@@ -57,7 +57,7 @@ services:
  COPY ./package.json ./
  RUN npm install
  COPY . .
- CMD ["npm","run","dev"]  # development environment
+ CMD ["npm","run","dev"]  # development environment ,declared in package.json file
  ------------------------------------------------------------------------
  
  vi dockerfile.dev  #make this file in directory client
@@ -67,7 +67,7 @@ services:
  COPY ./package.json ./
  RUN npm install
  COPY . .
- CMD ["npm","run","start"]  #production environment
+ CMD ["npm","run","start"]  #production environment ,declared in package.json file
  ------------------------------------------------------------------------
  
  Create a directory nginx
